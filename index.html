@@ -133,7 +133,7 @@ input.flash{animation:flash 2.2s ease-out}
 <p>Average time per attempt = attempt time + (1 − success) × stun chance × stun length. Stun is assumed to come after the failed attempt.</p>
 <p>Drops per second = success × rare-table chance × item share ÷ average time per attempt. The setup with the most drops per second wins. The item share is the same for every setup, so it never changes the winner, only the times.</p>
 <p>Level projections add 1 stealth per level to every setup, up to level 99, recalculate each setup's rate, and report the level where the leader changes. Nothing else is assumed to change as you level.</p>
-<p>XP per hour = success × XP per success ÷ average time per attempt; failures give no XP. Time to a switch adds up each level's XP from the standard XP table, divided by the XP per hour of whichever setup is best at that level, so it rises as your success improves.</p>
+<p>XP per hour = success × XP per success × (1 + the setup's thieving XP modifier) ÷ average time per attempt; failures give no XP. Time to a switch adds up each level's XP from the standard XP table, divided by the XP per hour of whichever setup is best at that level, so it rises as your success improves.</p>
 <p>Attempt times are 3s for pickpockets, 6s for stalls and 8s for chests; the stun is 2s. Each upgrade takes 5% off its timer or stun chance. Percentage modifiers of the same kind are added together before they are applied, and perception modifiers scale the target's perception, rounded to the nearest whole number.</p>
 </details>
 </section>
@@ -203,8 +203,8 @@ input.flash{animation:flash 2.2s ease-out}
 <script>
 {
 const KEY='thv-calc-v4';
-const EX={type:8,lvl:65,alv:65,item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
-const MODS=[{k:'perc',l:'Perception'},{k:'stun',l:'Thieving stun interval'}];
+const EX={type:8,lvl:65,alv:65,item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5,xp:3}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
+const MODS=[{k:'perc',l:'Perception'},{k:'stun',l:'Thieving stun interval'},{k:'xp',l:'Thieving XP'}];
 const NAMES={3:'Pickpocket',6:'Stall',8:'Chest'};
 const STUN=2;
 const TXT=['item','perc','q','xps','lvl','xpNow'],CHK=['spd','avoid','stunred'];
@@ -252,7 +252,7 @@ const s=Math.min(1,Math.max(0,(100+num(u.st,0))/(100+P)));
 const r=Math.max(0,num(u.r,0)/100);
 const at=T+(1-s)*k,rr=s*r/at;
 const st0=num(u.st,0),f=L=>{const x=Math.min(1,Math.max(0,(100+st0+L)/(100+P))),a=T+(1-x)*k;return {s:x,at:a,rr:x*r/a}};
-return {n:u.n||'Unnamed',st:st0,P,Ds,k,s,r,at,rr,dps:rr*q,pa:s*r*q,f,L100:Math.max(0,Math.ceil(P-st0))};
+return {n:u.n||'Unnamed',xpm:Math.max(0,1+num(m.xp,0)/100),st:st0,P,Ds,k,s,r,at,rr,dps:rr*q,pa:s*r*q,f,L100:Math.max(0,Math.ceil(P-st0))};
 });
 return {rows,T,D,p,q};
 }
@@ -278,7 +278,7 @@ const lvIn=$('lvl');let lv=hasXpNow?lvFromXp(xpNow):Math.floor(num(S.lvl,NaN));
 if(hasXpNow){lvIn.value=lv;lvIn.disabled=true}else lvIn.disabled=false;
 const hasLv=isFinite(lv)&&lv>=1;if(hasLv)lv=Math.min(lv,CAP);
 const left=hasLv?CAP-lv:0;
-$('race').innerHTML=order.map((i,j)=>{const r=rows[i];const v=(q>0?(r.dps>0?`<span>1 every ${dur(1/r.dps)}</span> · <span>${fmt(r.dps*3600,4)}/h</span>`:'<span>never</span>'):`<span>${fmt(r.rr*3600,3)} rare rolls/h</span>`)+(hasXps?` · <span>${fmt(r.s*xps*3600/r.at,0)} XP/h</span>`:'');
+$('race').innerHTML=order.map((i,j)=>{const r=rows[i];const v=(q>0?(r.dps>0?`<span>1 every ${dur(1/r.dps)}</span> · <span>${fmt(r.dps*3600,4)}/h</span>`:'<span>never</span>'):`<span>${fmt(r.rr*3600,3)} rare rolls/h</span>`)+(hasXps?` · <span>${fmt(r.s*xps*r.xpm*3600/r.at,0)} XP/h</span>`:'');
 const L=r.L100,last=L===0?['100% success','already']:!hasLv?['100% success at','+'+L+' levels']:L<=left?['100% success at','level '+(lv+L)]:['Success at 99',pct(r.f(left).s)];
 const st=[['Total stealth',fmt(r.st,0)],['Perception',fmt(r.P,0)],['Success',pct(r.s)],['Rare roll',pct(r.r)],['Stun',sec(r.Ds)],['Avg attempt',r.at.toFixed(3)+'s'],['Attempts per drop',r.pa>0?fmt(1/r.pa,0):'–'],last];
 return `<div class="lane${j===0&&r.rr>0?' win':''}"><b>${esc(r.n)}</b><span class="v">${v}</span><div class="track"><div class="fill" style="width:${(r.rr/top*100).toFixed(2)}%"></div></div><dl class="stats">${st.map(x=>`<div><dt>${x[0]}</dt><dd>${x[1]}</dd></div>`).join('')}</dl></div>`}).join('');
@@ -290,7 +290,7 @@ else{
 let lead=order[0],t=0;const sw=[];
 for(let L=0;L<=left;L++){
 if(L>0){const rates=rows.map(r=>r.f(L).rr);let b=lead;rates.forEach((x,i)=>{if(x>rates[b]*(1+1e-12))b=i});if(b!==lead){sw.push({L,a:lead,b,t});lead=b}}
-if(L<left&&hasXps){const from=L===0&&hasXpNow?Math.min(Math.max(xpNow,XPT[lv]),XPT[lv+1]):XPT[lv+L];const o=rows[lead].f(L),xr=o.s*xps/o.at;t+=xr>0?(XPT[lv+L+1]-from)/xr:Infinity}
+if(L<left&&hasXps){const from=L===0&&hasXpNow?Math.min(Math.max(xpNow,XPT[lv]),XPT[lv+1]):XPT[lv+L];const o=rows[lead].f(L),xr=o.s*xps*rows[lead].xpm/o.at;t+=xr>0?(XPT[lv+L+1]-from)/xr:Infinity}
 }
 if(!sw.length)be.push(`<li>${esc(best.n)} stays the best choice all the way to level ${CAP}. Each level adds 1 stealth to every setup, and that never lets another setup overtake it before the cap.</li>`);
 else for(const w of sw)be.push(`<li class="w">Switch to <b>${esc(rows[w.b].n)}</b> at level ${lv+w.L} (${w.L} level${w.L>1?'s':''} from now${hasXps?`, about ${dur(w.t)} of thieving`:''}): from then on it beats ${esc(rows[w.a].n)}.</li>`);
