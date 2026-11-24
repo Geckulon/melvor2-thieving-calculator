@@ -98,6 +98,27 @@ main.band{padding-bottom:96px}
 #impFile:focus-visible+.filebtn{outline:2px solid var(--gold);outline-offset:2px}
 .msg{min-height:1.4em;margin:10px 0 0;font-size:15px}
 .msg:empty{min-height:0;margin:0}
+.lvl{display:grid;gap:2px;margin:16px 0 0;padding:12px 14px;border-radius:8px;border-left:5px solid var(--c);background:color-mix(in srgb,var(--c) 12%,transparent)}
+.lvl b{font:700 clamp(22px,3vw,28px)/1.1 Cinzel,Georgia,serif;color:var(--c)}
+.l0{--c:light-dark(#b3261e,#ff8a80)}.l1{--c:light-dark(#c2410c,#ff9a62)}.l2{--c:var(--goldt)}.l3{--c:light-dark(#2f62a8,#86b4ff)}.l4{--c:var(--teal)}.l5{--c:light-dark(#2d7a2d,#7fd17f)}
+.thr{margin:10px 0 0;font-size:15px}
+.sl{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
+.sl li{padding:10px 12px;border:1px solid var(--edge);border-radius:8px;font-size:15px}
+.sl li>b:first-child{display:block;font-size:16px;margin-bottom:2px}
+.sl .rec{display:inline-block;margin-left:6px;font-size:12px;font-weight:500;color:var(--mut);border:1px solid var(--edge);border-radius:10px;padding:0 6px}
+.wc{display:block;margin-top:4px;color:var(--mut);font-size:14px}
+.sl .tag{display:inline-block;margin-left:6px;font-size:13px;font-weight:700;color:var(--c)}
+#surv .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.gh{font:600 15px "Alegreya Sans",system-ui,sans-serif;margin:14px 0 6px}
+.gd{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:15px}
+.gd li{display:grid;grid-template-columns:8.5em minmax(0,1fr);gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--edge)}
+.gd li:last-child{border-bottom:0}
+.gl{font-weight:700;color:var(--c)}
+.gn{display:block;color:var(--mut);font-size:14px}
+.gd li{grid-template-columns:minmax(8.5em,max-content) minmax(0,1fr)}
+.warns{margin:12px 0 0;padding-left:20px;display:grid;gap:6px;font-size:15px}
+.alert{margin:12px 0 0;padding:10px 12px;border-radius:8px;border-left:5px solid var(--c);background:color-mix(in srgb,var(--c) 12%,transparent);font-size:15px}
+.alert a{color:inherit;font-weight:700}
 dialog{width:min(440px,calc(100vw - 32px));border:1px solid var(--edge);border-radius:12px;padding:22px;background:var(--pan);color:var(--ink);box-shadow:0 18px 50px rgb(0 0 0/.35)}
 dialog::backdrop{background:rgb(20 6 14/.55)}
 dialog h3{font-size:20px}
@@ -126,6 +147,7 @@ input.flash{animation:flash 2.2s ease-out}
 <section id="res" class="pan" aria-live="polite">
 <h2 id="verdict">…</h2>
 <p class="sub" id="verdictSub"></p>
+<p class="alert" id="survAlert" hidden></p>
 <div class="kpis" id="kpis"></div>
 <div class="race" id="race"></div>
 <ul class="be" id="be"></ul>
@@ -137,6 +159,17 @@ input.flash{animation:flash 2.2s ease-out}
 <p>Attempt times are 3s for pickpockets, 6s for stalls and 8s for chests; the stun is 2s. Each upgrade takes 5% off its timer or stun chance. Percentage modifiers of the same kind are added together before they are applied, and perception modifiers scale the target's perception, rounded to the nearest whole number.</p>
 </details>
 </section>
+<div class="pan" id="surv">
+<h3>Survival</h3>
+<div class="grid">
+<label><span>Max HP</span><input id="hp" type="number" inputmode="numeric" min="1" step="1"></label>
+<label><span>Max damage per failure</span><input id="dmg" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 40"></label>
+<label><span>Food quantity</span><input id="food" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 500"></label>
+<label><span>HP healed per food</span><input id="heal" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 60"></label>
+</div>
+<div id="survOut"></div>
+<p class="hint">Errs on the side of safety: every failure is assumed to hit for the max damage. Ratings use normal play: Danger if you'd die before the average drop, Caution before 99% of players have it, Stable before twice that, Safe beyond it, and Invincible past 24 hours. Any tier whose mark is past 24 hours merges into Invincible, since 24 hours is the offline limit. Deadly whenever your max hit isn't below the auto-eat threshold. You start at full HP with no regeneration, and auto-eat eats one food at a time while you're at or below 25% of max HP (rounded up).</p>
+</div>
 <div class="pan" id="backup">
 <h3>Save and restore</h3>
 <p class="sub" style="margin-bottom:12px">Your inputs are saved in this browser automatically. Export a JSON file to keep a backup, or to move your setups to another browser or device.</p>
@@ -191,6 +224,7 @@ input.flash{animation:flash 2.2s ease-out}
 </div>
 <p class="hint">Success is worked out from each setup's stealth and the target's perception after that setup's modifiers. Item modifiers add to the upgrades: Shorter stun (−5%) plus an item's −5% stun interval makes −10%. Use a minus sign for reductions. Starting values are an example.</p>
 </div>
+
 </section>
 </main>
 <dialog id="cfm" aria-labelledby="cfmT" aria-describedby="cfmD">
@@ -203,16 +237,16 @@ input.flash{animation:flash 2.2s ease-out}
 <script>
 {
 const KEY='thv-calc-v4';
-const EX={type:8,lvl:65,alv:65,item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5,xp:3}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
+const EX={type:8,lvl:65,alv:65,hp:310,dmg:'',food:'',heal:'',item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5,xp:3}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
 const MODS=[{k:'perc',l:'Perception'},{k:'stun',l:'Thieving stun interval'},{k:'xp',l:'Thieving XP'}];
 const NAMES={3:'Pickpocket',6:'Stall',8:'Chest'};
 const STUN=2;
-const TXT=['item','perc','q','xps','lvl','xpNow'],CHK=['spd','avoid','stunred'];
+const TXT=['item','perc','q','xps','lvl','xpNow','hp','dmg','food','heal'],CHK=['spd','avoid','stunred'];
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!Array.isArray(S.setups)||!NAMES[S.type])S=JSON.parse(JSON.stringify(EX));
 for(const u of S.setups)if(!u.mods||typeof u.mods!=='object')u.mods={};
-if(S.lvl===undefined)S.lvl=65;if(S.xps===undefined)S.xps='';if(S.xpNow===undefined)S.xpNow='';
+if(S.lvl===undefined)S.lvl=65;for(const k of ['hp','dmg','food','heal'])if(S[k]===undefined)S[k]=k==='hp'?310:'';if(S.xps===undefined)S.xps='';if(S.xpNow===undefined)S.xpNow='';
 const CAP=99,XPT=[0,0];{let p=0;for(let n=1;n<120;n++){p+=Math.floor(n+300*Math.pow(2,n/7));XPT.push(Math.floor(p/4))}}
 const lvFromXp=x=>{let L=1;while(L<CAP&&XPT[L+1]<=x)L++;return L};
 const $=id=>document.getElementById(id);
@@ -220,7 +254,8 @@ const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const num=(v,d)=>{const x=parseFloat(v);return isFinite(x)?x:d};
 const pct=(x,d=2)=>(x*100).toFixed(d)+'%';
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
-const dur=s=>{if(!isFinite(s))return '–';if(s<60)return Math.round(s)+'s';const m=s/60;if(m<60)return Math.floor(m)+'m '+Math.round(s%60)+'s';const h=m/60;if(h<48)return Math.floor(h)+'h '+Math.round(m%60)+'m';return Math.floor(h/24)+'d '+Math.round(h%24)+'h'};
+const dur=x=>dur0(x).replace(/ /g,'\u00a0');
+const dur0=s=>{if(!isFinite(s))return '–';if(s<60)return Math.round(s)+'s';const m=s/60;if(m<60)return Math.floor(m)+'m '+Math.round(s%60)+'s';const h=m/60;if(h<48)return Math.floor(h)+'h '+Math.round(m%60)+'m';return Math.floor(h/24)+'d '+Math.round(h%24)+'h'};
 const fmt=(x,d)=>isFinite(x)?x.toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d}):'–';
 const sec=x=>(+x.toFixed(3)).toString()+'s';
 
@@ -257,8 +292,63 @@ return {n:u.n||'Unnamed',xpm:Math.max(0,1+num(m.xp,0)/100),st:st0,P,Ds,k,s,r,at,
 return {rows,T,D,p,q};
 }
 
+const LV=['Deadly','Danger','Caution','Stable','Safe','Invincible'];
+const DAY=86400;
+function simHits(H,dmg,F,heal,thr,cap){let hp=H,food=F,n=0,out=F>0?Infinity:0;while(n<cap){hp-=dmg;n++;if(hp<=0)return {n,out};while(hp<=thr&&food>0&&heal>0){hp=Math.min(H,hp+heal);food--;if(food===0)out=n}}return {n:Infinity,out}}
+function renderSurv(rows,T){
+const H=Math.floor(num(S.hp,NaN)),dmg=num(S.dmg,NaN),F=Math.max(0,Math.floor(num(S.food,0))),heal=Math.max(0,num(S.heal,0));
+const out=$('survOut'),al=$('survAlert');al.hidden=true;
+if(!(H>0)){out.innerHTML='<p class="thr">Enter your max HP to check how safe this is.</p>';return}
+if(!rows.length){out.innerHTML='<p class="thr">Add a setup to check how safe it is.</p>';return}
+const thr=Math.ceil(H*0.25);
+const thrLine=`<p class="thr">Auto-eat at <b>${fmt(thr,0)} HP</b> or lower (25% of ${fmt(H,0)}, rounded up).</p>`;
+if(!(dmg>=0)){out.innerHTML=thrLine+'<p class="thr">Enter the max damage you can take from one failure to see your risk.</p>';return}
+const deadly=dmg>0&&dmg>=thr;
+const minFail=Math.min(...rows.map(r=>T+r.k));
+const sim=dmg>0?simHits(H,dmg,F,heal,thr,Math.ceil(8*DAY/minFail)+2):{n:Infinity,out:Infinity};
+const lead=rows.reduce((b,r,i)=>r.rr>rows[b].rr?i:b,0);
+const items=rows.map((r,i)=>{
+const fr=r.s>=1?0:(1-r.s)/r.at,E=fr>0?sim.n/fr:Infinity,worst=sim.n*(T+r.k);
+const avg=r.dps>0?1/r.dps:Infinity,p99=r.pa>0?Math.log(0.01)/Math.log1p(-r.pa)*r.at:Infinity;
+const tiers=[[2,avg],[3,p99],[4,2*p99]],mname=[...tiers.filter(x=>x[1]>=DAY).map(x=>LV[x[0]]),LV[5]].join(' / ');
+let lv;
+if(deadly)lv=0;else if(E>=DAY)lv=5;else{lv=1;for(const [k,t] of tiers)if(t<DAY&&E>=t)lv=k}
+const name=lv===5?mname:LV[lv];
+const fph=fr>0&&heal>0&&F>0?fr*3600*dmg/heal:0;
+const eTxt=dmg===0?'failures do no damage, so you never die':fr===0?'this setup never fails, so it never takes damage':`about ${fmt(fr*3600,0)} failures an hour${fph?`, up to ${fmt(fph,fph<10?1:0)} food an hour`:''}. You'd last about <b>${E===Infinity?'more than a week':dur(E)}</b>`;
+const dTxt=avg<Infinity?` (average drop ${dur(avg)}, 99% of players have it by ${dur(p99)})`:'';
+const wTxt=dmg===0?'':`<span class="wc">Worst case, failing every attempt: dead after ${sim.n===Infinity?'more than a week':dur(worst)}.</span>`;
+return {lv,name,mname,E,avg,p99,html:`<li class="l${lv}"><b>${esc(r.n)}<span class="tag">${name}</span>${i===lead&&rows.length>1?'<span class="rec">recommended</span>':''}</b>Normal play, max damage on every failure: ${eTxt}${fr>0&&dmg>0?dTxt:''}.${wTxt}</li>`};
+});
+const L=items[lead],lv=L.lv,lname=L.name;
+let guide='';
+if(deadly){const needH=4*dmg+1;guide=`<p class="thr">Food can't fix a Deadly rating. Your auto-eat threshold has to be above your max hit: that needs at least <b>${fmt(needH,0)} max HP</b>, or a max hit below ${fmt(thr,0)}.</p>`}
+else if(dmg>0){const R=rows[lead],fr=R.s>=1?0:(1-R.s)/R.at;
+if(fr>0&&heal>0){
+const need=t=>{const n=Math.ceil(t*fr);if(simHits(H,dmg,0,heal,thr,n+1).n>=n)return 0;let lo=0,hi=Math.max(1,Math.ceil(n*dmg/heal));while(simHits(H,dmg,hi,heal,thr,n+1).n<n)hi*=2;while(lo<hi){const m=Math.floor((lo+hi)/2);if(simHits(H,dmg,m,heal,thr,n+1).n>=n)hi=m;else lo=m+1}return lo};
+const tg=[[2,L.avg,LV[2]],[3,L.p99,LV[3]],[4,2*L.p99,LV[4]]].filter(x=>x[1]<DAY);tg.push([5,DAY,L.mname]);
+const rowsG=tg.map(([k,t,label])=>{if(!(t<Infinity))return '';const f=need(t),more=f-F;return `<li><span class="l${k} gl">${label}</span><span>last ${dur(t)}: ${fmt(f,0)} food${more>0?` <b>(+${fmt(more,0)} more)</b>`:' (you have enough)'}${k===5?'<small class="gn">24 hours of AFK, the offline limit, shouldn\'t kill you.</small>':''}</span></li>`}).join('');
+guide=`<h4 class="gh">Food needed${rows.length>1?' with '+esc(R.n):''}</h4><ul class="gd">${rowsG}</ul>`}
+else if(fr>0&&heal===0)guide='<p class="thr">Enter how much each food heals to see how much food each rating needs.</p>'}
+const sum=[
+dmg>=H?`One failure can kill you from full health (${fmt(dmg,0)} damage, ${fmt(H,0)} max HP).`:`Your max hit (${fmt(dmg,0)}) isn't below your auto-eat threshold (${fmt(thr,0)} HP), so no amount of food protects you: ${dmg>thr?`a hit while you're on ${fmt(thr+1,0)}${dmg>thr+1?'–'+fmt(Math.min(dmg,H),0):''} HP kills you`:`a hit while you're on ${fmt(thr+1,0)} HP leaves you on 1 HP`}.`,
+`In normal play you'd likely die before the average drop (${dur(L.avg)}).`,
+`You'd outlast the average drop, but not the point where 99% of players have it (${dur(L.p99)}). Keep an eye on your food.`,
+`You'd last past the 99% mark (${dur(L.p99)}), but not twice that.`,
+`You'd last more than twice the 99% mark (${dur(2*L.p99)}).`,
+(dmg===0?'Failures do no damage.':`Normal play lasts more than 24 hours, so 24 hours of AFK (the offline limit) shouldn't kill you.`)][lv];
+const notes=[];
+if(!deadly&&dmg>0&&L.avg>=DAY&&L.avg<Infinity){const it=String(S.item||'').trim()||'the item';notes.push(`<b>Long hunt:</b> the average drop takes more than 24 hours (${dur(L.avg)}${rows.length>1?' with '+esc(rows[lead].n):''}), so one offline session usually won't get you ${esc(it)}. Plan to check in, restock food and restart at least once a day.`)}
+if(dmg>0&&(F===0||heal===0))notes.push('You have no usable food, so every failure eats into your HP until you die.');
+else if(dmg>0&&heal<dmg)notes.push(`Each food heals less than one max hit (${fmt(heal,0)} vs ${fmt(dmg,0)}), so you burn more than one food per failure.`);
+if(dmg>0&&sim.out<Infinity&&F>0)notes.push(`Your food runs out after ${fmt(sim.out,0)} max-damage failures.`);
+if(dmg>0)notes.push('No setting is absolutely safe: the worst case above (failing every attempt) is extremely unlikely, but it shows how long you could last if it happened, including while the game runs online and unattended.');
+out.innerHTML=`<div class="lvl l${lv}"><b>${lname}</b><span>${rows.length>1?esc(rows[lead].n)+': ':''}${sum}</span></div>`+thrLine+guide+`<ul class="sl">${items.map(x=>x.html).join('')}</ul>`+(notes.length?`<ul class="warns">${notes.map(w=>`<li>${w}</li>`).join('')}</ul>`:'');
+if(lv<=2){al.className='alert l'+lv;al.innerHTML=`Survival: <b>${LV[lv]}</b>. ${sum} <a href="#surv">See the Survival panel.</a>`;al.hidden=false}
+}
 function render(){
 const {rows,T,D,p,q}=calc();
+renderSurv(rows,T);
 const item=String(S.item||'').trim()||'the item';
 $('timing').innerHTML=`<span>${NAMES[S.type]} attempt <b>${sec(T)}</b></span><span>Stun <b>${sec(D)}</b> before item modifiers</span><span>Stunned on <b>${fmt(p*100,0)}%</b> of failures</span>`;
 if(!rows.length){$('verdict').textContent='Add a setup to compare';$('verdictSub').textContent='';$('kpis').innerHTML='';$('race').innerHTML='';$('be').innerHTML='';return}
@@ -334,7 +424,7 @@ const o=JSON.parse(JSON.stringify(EX));
 o.type=[3,6,8].includes(+d.type)?+d.type:o.type;
 o.item=typeof d.item==='string'?d.item.slice(0,120):o.item;
 for(const k of ['perc','q','lvl'])o[k]=nOr(d[k],String(o[k]));
-for(const k of ['xps','xpNow'])o[k]=nOr(d[k],'');
+for(const k of ['xps','xpNow','dmg','food','heal'])o[k]=nOr(d[k],'');o.hp=nOr(d.hp,'');
 for(const k of CHK)o[k]=!!d[k];
 o.setups=d.setups.slice(0,50).filter(u=>u&&typeof u==='object').map((u,i)=>{const m={};if(u.mods&&typeof u.mods==='object')for(const x of MODS)if(x.k in u.mods)m[x.k]=nOr(u.mods[x.k],'0');return {n:typeof u.n==='string'?u.n.slice(0,80):'Setup '+(i+1),st:nOr(u.st,'0'),r:nOr(u.r,'0'),mods:m}});
 o.alv=undefined;return o;
@@ -358,6 +448,17 @@ const closeCfm=()=>{if(typeof cfm.close==='function')cfm.close();else cfm.remove
 $('cfmNo').addEventListener('click',closeCfm);
 $('cfmYes').addEventListener('click',()=>{closeCfm();doReset()});
 cfm.addEventListener('click',e=>{if(e.target===cfm)closeCfm()});
+// ---- balance columns: the backup panel goes to whichever column is shorter ----
+{
+const bk=$('backup'),ctlCol=$('ctl'),sideCol=$('side'),wideQ=window.matchMedia('(min-width:861px)');
+const colH=c=>c.getBoundingClientRect().height-(bk.parentNode===c?bk.getBoundingClientRect().height+16:0);
+let raf=0;
+const place=()=>{raf=0;let t=sideCol;if(wideQ.matches){const hl=colH(ctlCol),hr=colH(sideCol);t=bk.parentNode===ctlCol?(hr<hl?sideCol:ctlCol):(hl<hr?ctlCol:sideCol)}if(bk.parentNode!==t){const f=bk.contains(document.activeElement)?document.activeElement:null;t.appendChild(bk);if(f)f.focus({preventScroll:true})}};
+const queue=()=>{if(!raf)raf=requestAnimationFrame(place)};
+const balanceRO=new ResizeObserver(queue);balanceRO.observe(ctlCol);balanceRO.observe(sideCol);
+if(wideQ.addEventListener)wideQ.addEventListener('change',queue);
+queue();
+}
 const topBtn=$('top');
 const onScroll=()=>topBtn.classList.toggle('show',window.scrollY>300);
 window.addEventListener('scroll',onScroll,{passive:true});onScroll();
