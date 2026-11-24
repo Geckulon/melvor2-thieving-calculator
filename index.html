@@ -97,6 +97,12 @@ main.band{padding-bottom:96px}
 #impFile:focus-visible+.filebtn{outline:2px solid var(--gold);outline-offset:2px}
 .msg{min-height:1.4em;margin:10px 0 0;font-size:15px}
 .msg:empty{min-height:0;margin:0}
+dialog{width:min(440px,calc(100vw - 32px));border:1px solid var(--edge);border-radius:12px;padding:22px;background:var(--pan);color:var(--ink);box-shadow:0 18px 50px rgb(0 0 0/.35)}
+dialog::backdrop{background:rgb(20 6 14/.55)}
+dialog h3{font-size:20px}
+dialog p{margin:0 0 18px}
+button.danger{background:#b3261e;border-color:#b3261e;color:#fff}
+button.danger:hover{background:#8f1d17;border-color:#8f1d17}
 #pasteBox{margin-top:12px}
 .msg.ok{color:var(--teal)}.msg.err{color:light-dark(#b3261e,#ff8a80)}
 textarea{width:100%;margin-top:8px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--edge);border-radius:6px;padding:8px}
@@ -137,7 +143,8 @@ input.flash{animation:flash 2.2s ease-out}
 <button type="button" id="exp">Export JSON</button>
 <input type="file" id="impFile" accept=".json,application/json" class="vh">
 <label class="filebtn" for="impFile">Import JSON</label>
-<button type="button" id="undo" hidden>Undo import</button>
+<button type="button" id="reset">Reset to example</button>
+<button type="button" id="undo" hidden>Undo</button>
 </div>
 <p class="msg" id="msg" role="status" aria-live="polite"></p>
 <details id="pasteBox"><summary>Copy or paste JSON as text</summary>
@@ -180,12 +187,16 @@ input.flash{animation:flash 2.2s ease-out}
 <div id="setups"></div>
 <div class="row" style="margin:12px 0 0">
 <button type="button" id="add">Add setup</button>
-<button type="button" id="reset">Reset to example</button>
 </div>
 <p class="hint">Success is worked out from each setup's stealth and the target's perception after that setup's modifiers. Item modifiers add to the upgrades: Shorter stun (−5%) plus an item's −5% stun interval makes −10%. Use a minus sign for reductions. Starting values are an example.</p>
 </div>
 </section>
 </main>
+<dialog id="cfm" aria-labelledby="cfmT" aria-describedby="cfmD">
+<h3 id="cfmT">Reset to the starting example?</h3>
+<p id="cfmD">This replaces your target, upgrades, level, XP and every setup with the example values. You can undo it straight after, or export a backup first.</p>
+<div class="row" style="margin:0;justify-content:flex-end"><button type="button" id="cfmNo" autofocus>Cancel</button><button type="button" id="cfmYes" class="danger">Reset</button></div>
+</dialog>
 <button type="button" id="top" aria-label="Back to top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Top</button>
 
 <script>
@@ -298,7 +309,7 @@ $('setups').addEventListener('input',e=>{const el=e.target,w=el.closest('.setup'
 $('setups').addEventListener('change',e=>{const el=e.target,w=el.closest('.setup');if(!w||!el.hasAttribute('data-madd')||!el.value)return;const i=+w.dataset.i,k=el.value;S.setups[i].mods[k]=0;drawSetups();save();render();const f=$('m'+k+i);if(f){f.focus();f.select()}});
 $('setups').addEventListener('click',e=>{const md=e.target.closest('[data-mdel]');if(md){const i=+md.closest('.setup').dataset.i;delete S.setups[i].mods[md.dataset.mdel];drawSetups();save();render();return}const b=e.target.closest('[data-del]');if(!b)return;S.setups.splice(+b.dataset.del,1);drawSetups();save();render()});
 $('add').addEventListener('click',()=>{S.setups.push({n:'Setup '+(S.setups.length+1),st:S.setups[0]?S.setups[0].st:100,r:1,mods:{}});drawSetups();save();render();const el=$('n'+(S.setups.length-1));if(el)el.focus()});
-$('reset').addEventListener('click',()=>{S=JSON.parse(JSON.stringify(EX));fillInputs();drawSetups();save();render()});
+
 // ---- export / import ----
 const APP='geka-thieving-calc',FMT=1;
 let dl=null;
@@ -330,14 +341,22 @@ o.alv=undefined;return o;
 let prev=null;
 function applyImport(text,src){
 let o;try{o=clean(JSON.parse(text))}catch(e){msg(e instanceof SyntaxError?'That isn\'t valid JSON, so nothing was imported.':e&&e.calc?e.message:'That file couldn\'t be imported, so nothing was changed.','err');return}
-prev=JSON.stringify(S);S=o;S.alv=curLv();
+prev=JSON.stringify(S);undoWhat='Import';S=o;S.alv=curLv();
 fillInputs();drawSetups();save();render();
 $('undo').hidden=false;
 msg('Imported '+S.setups.length+' setup'+(S.setups.length===1?'':'s')+(src?' from '+src:'')+'.','ok');
 }
 $('impFile').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;if(f.size>1e6){msg('That file is too large to be a calculator backup.','err');return}try{applyImport(await f.text(),f.name)}catch(err){msg('The file couldn\'t be read.','err')}});
 $('pasteImp').addEventListener('click',()=>{const t=$('pasteTxt').value.trim();if(!t){msg('Paste a backup into the box first.','err');return}applyImport(t,'')});
-$('undo').addEventListener('click',()=>{if(!prev)return;S=JSON.parse(prev);prev=null;fillInputs();drawSetups();save();render();$('undo').hidden=true;msg('Import undone.','ok')});
+let undoWhat='Import';
+$('undo').addEventListener('click',()=>{if(!prev)return;S=JSON.parse(prev);prev=null;fillInputs();drawSetups();save();render();$('undo').hidden=true;msg(undoWhat+' undone.','ok')});
+const cfm=$('cfm');
+const doReset=()=>{prev=JSON.stringify(S);undoWhat='Reset';S=JSON.parse(JSON.stringify(EX));fillInputs();drawSetups();save();render();$('undo').hidden=false;msg('Reset to the starting example.','ok')};
+$('reset').addEventListener('click',()=>{if(typeof cfm.showModal==='function'){try{cfm.showModal();return}catch(e){}}cfm.setAttribute('open','')});
+const closeCfm=()=>{if(typeof cfm.close==='function')cfm.close();else cfm.removeAttribute('open');$('reset').focus()};
+$('cfmNo').addEventListener('click',closeCfm);
+$('cfmYes').addEventListener('click',()=>{closeCfm();doReset()});
+cfm.addEventListener('click',e=>{if(e.target===cfm)closeCfm()});
 const topBtn=$('top');
 const onScroll=()=>topBtn.classList.toggle('show',window.scrollY>300);
 window.addEventListener('scroll',onScroll,{passive:true});onScroll();
