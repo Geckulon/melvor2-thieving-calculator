@@ -28,7 +28,7 @@ header p{margin:0;max-width:66ch;color:#e3cfd8}
 h2{font:700 clamp(22px,2.6vw,30px)/1.15 Cinzel,Georgia,serif;margin:0 0 6px;text-wrap:balance}
 h3{font:600 17px/1.2 Cinzel,Georgia,serif;margin:0 0 10px}
 main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);grid-template-areas:"ctl res";gap:24px;align-items:start}
-#res{grid-area:res}
+#side{grid-area:res;display:grid;gap:16px;align-content:start}
 #ctl{grid-area:ctl;display:grid;gap:16px}
 .pan{background:var(--pan);border:1px solid var(--edge);border-radius:10px;padding:18px}
 .sub{color:var(--mut);margin:0 0 14px}
@@ -75,7 +75,7 @@ select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .lane{padding-bottom:14px;border-bottom:1px solid var(--edge)}
 .lane:last-child{border-bottom:0;padding-bottom:0}
 .lane .v span{white-space:nowrap}
-.stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 16px;margin:10px 0 0}
+.stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 16px;margin:10px 0 0}
 .stats div{display:flex;flex-direction:column}
 .stats dt{font-size:13px;color:var(--mut)}
 .stats dd{margin:0;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -88,13 +88,24 @@ summary{cursor:pointer;min-height:32px}
 @media(max-width:860px){main{grid-template-columns:minmax(0,1fr);grid-template-areas:"res" "ctl"}#res{position:static}}
 @media(max-width:600px){.setup{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}.setup .nm{grid-column:1/-1}.pan{padding:14px}.lane{grid-template-columns:minmax(0,1fr)}.lane .v{text-align:left}}
 @media(max-width:600px){.chk{flex-wrap:wrap;gap:0 12px;padding:6px 0}.chk em{flex-basis:100%;padding-left:32px}}
-@media(max-width:380px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #top{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:10;display:flex;align-items:center;gap:6px;min-height:48px;padding:10px 16px;border-radius:24px;border:0;background:var(--wine);color:#f7ecf1;font-weight:700;box-shadow:0 4px 14px rgb(0 0 0/.25);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s,transform .2s}
 main.band{padding-bottom:96px}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+.filebtn{display:inline-flex;align-items:center;font:500 15px "Alegreya Sans",system-ui,sans-serif;min-height:44px;padding:8px 14px;border-radius:6px;border:1px solid var(--edge);background:var(--pan);color:var(--ink);cursor:pointer}
+.filebtn:hover{border-color:var(--teal)}
+#impFile:focus-visible+.filebtn{outline:2px solid var(--gold);outline-offset:2px}
+.msg{min-height:1.4em;margin:10px 0 0;font-size:15px}
+.msg:empty{min-height:0;margin:0}
+#pasteBox{margin-top:12px}
+.msg.ok{color:var(--teal)}.msg.err{color:light-dark(#b3261e,#ff8a80)}
+textarea{width:100%;margin-top:8px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--edge);border-radius:6px;padding:8px}
 #top.show{opacity:1;transform:none;pointer-events:auto}
 #top:hover{background:#561b3a}
 #top svg{width:18px;height:18px}
-@media(prefers-reduced-motion:reduce){.fill,#top{transition:none}}
+input.flash{animation:flash 2.2s ease-out}
+@keyframes flash{0%,55%{border-color:var(--gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 45%,transparent)}100%{border-color:var(--edge);box-shadow:0 0 0 0 transparent}}
+@media(prefers-reduced-motion:reduce){.fill,#top{transition:none}input.flash{animation:none;border-color:var(--gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 45%,transparent)}}
 </style>
 </head>
 <body>
@@ -104,6 +115,7 @@ main.band{padding-bottom:96px}
 </div></header>
 
 <main class="band">
+<div id="side">
 <section id="res" class="pan" aria-live="polite">
 <h2 id="verdict">…</h2>
 <p class="sub" id="verdictSub"></p>
@@ -113,10 +125,27 @@ main.band{padding-bottom:96px}
 <details><summary>How this is worked out</summary>
 <p>Average time per attempt = attempt time + (1 − success) × stun chance × stun length. Stun is assumed to come after the failed attempt.</p>
 <p>Drops per second = success × rare-table chance × item share ÷ average time per attempt. The setup with the most drops per second wins. The item share is the same for every setup, so it never changes the winner, only the times.</p>
-<p>Break-even success for a setup = best rate × (T + k) ÷ (its rare chance + best rate × k), where T is the attempt time, k = stun chance × stun length, and "best rate" is the leader's rare rolls per second. Above that, it beats the leader.</p>
+<p>Level projections add 1 stealth per level to every setup, up to level 99, recalculate each setup's rate, and report the level where the leader changes. Nothing else is assumed to change as you level.</p>
+<p>XP per hour = success × XP per success ÷ average time per attempt; failures give no XP. Time to a switch adds up each level's XP from the standard XP table, divided by the XP per hour of whichever setup is best at that level, so it rises as your success improves.</p>
 <p>Attempt times are 3s for pickpockets, 6s for stalls and 8s for chests; the stun is 2s. Each upgrade takes 5% off its timer or stun chance. Percentage modifiers of the same kind are added together before they are applied, and perception modifiers scale the target's perception, rounded to the nearest whole number.</p>
 </details>
 </section>
+<div class="pan" id="backup">
+<h3>Save and restore</h3>
+<p class="sub" style="margin-bottom:12px">Your inputs are saved in this browser automatically. Export a JSON file to keep a backup, or to move your setups to another browser or device.</p>
+<div class="row" style="margin:0">
+<button type="button" id="exp">Export JSON</button>
+<input type="file" id="impFile" accept=".json,application/json" class="vh">
+<label class="filebtn" for="impFile">Import JSON</label>
+<button type="button" id="undo" hidden>Undo import</button>
+</div>
+<p class="msg" id="msg" role="status" aria-live="polite"></p>
+<details id="pasteBox"><summary>Copy or paste JSON as text</summary>
+<textarea id="pasteTxt" rows="6" spellcheck="false" aria-label="Backup JSON"></textarea>
+<div class="row" style="margin:8px 0 0"><button type="button" id="pasteImp">Import pasted JSON</button><button type="button" id="copyTxt">Copy current setups</button></div>
+</details>
+</div>
+</div>
 
 <section id="ctl">
 <div class="pan">
@@ -130,6 +159,7 @@ main.band{padding-bottom:96px}
 <label class="full"><span>Rare item</span><input id="item" type="text" autocomplete="off"></label>
 <label><span>Perception without items</span><input id="perc" type="number" inputmode="decimal" min="0" step="1"></label>
 <label><span>Item share of rare table (%)</span><input id="q" type="number" inputmode="decimal" min="0" max="100" step="0.01"></label>
+<label><span>XP per success (optional)</span><input id="xps" type="number" inputmode="decimal" min="0" step="0.1" placeholder="e.g. 25"></label>
 </div>
 </div>
 
@@ -145,6 +175,8 @@ main.band{padding-bottom:96px}
 
 <div class="pan">
 <h3>Setups to compare</h3>
+<div class="grid" style="margin-bottom:6px"><label><span>Current thieving level</span><input id="lvl" type="number" inputmode="numeric" min="1" max="99" step="1"></label><label><span>Current XP (optional)</span><input id="xpNow" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 466214"></label></div>
+<p class="hint" style="margin:0 0 8px">Enter each setup's total stealth at this level. Changing the level (or XP) adjusts every setup's total stealth by 1 per level, so you only enter it once. Projections run up to the level 99 cap.</p>
 <div id="setups"></div>
 <div class="row" style="margin:12px 0 0">
 <button type="button" id="add">Add setup</button>
@@ -159,21 +191,24 @@ main.band{padding-bottom:96px}
 <script>
 {
 const KEY='thv-calc-v4';
-const EX={type:3,item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
+const EX={type:8,lvl:65,alv:65,item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
 const MODS=[{k:'perc',l:'Perception'},{k:'stun',l:'Thieving stun interval'}];
 const NAMES={3:'Pickpocket',6:'Stall',8:'Chest'};
 const STUN=2;
-const TXT=['item','perc','q'],CHK=['spd','avoid','stunred'];
+const TXT=['item','perc','q','xps','lvl','xpNow'],CHK=['spd','avoid','stunred'];
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!Array.isArray(S.setups)||!NAMES[S.type])S=JSON.parse(JSON.stringify(EX));
 for(const u of S.setups)if(!u.mods||typeof u.mods!=='object')u.mods={};
+if(S.lvl===undefined)S.lvl=65;if(S.xps===undefined)S.xps='';if(S.xpNow===undefined)S.xpNow='';
+const CAP=99,XPT=[0,0];{let p=0;for(let n=1;n<120;n++){p+=Math.floor(n+300*Math.pow(2,n/7));XPT.push(Math.floor(p/4))}}
+const lvFromXp=x=>{let L=1;while(L<CAP&&XPT[L+1]<=x)L++;return L};
 const $=id=>document.getElementById(id);
 const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=(v,d)=>{const x=parseFloat(v);return isFinite(x)?x:d};
 const pct=(x,d=2)=>(x*100).toFixed(d)+'%';
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
-const dur=s=>{if(!isFinite(s))return '–';if(s<60)return Math.round(s)+'s';const m=s/60;if(m<60)return Math.floor(m)+'m '+Math.round(s%60)+'s';const h=m/60;if(h<48)return Math.floor(h)+'h '+Math.round(m%60)+'m';return (h/24).toFixed(1)+' days'};
+const dur=s=>{if(!isFinite(s))return '–';if(s<60)return Math.round(s)+'s';const m=s/60;if(m<60)return Math.floor(m)+'m '+Math.round(s%60)+'s';const h=m/60;if(h<48)return Math.floor(h)+'h '+Math.round(m%60)+'m';return Math.floor(h/24)+'d '+Math.round(h%24)+'h'};
 const fmt=(x,d)=>isFinite(x)?x.toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d}):'–';
 const sec=x=>(+x.toFixed(3)).toString()+'s';
 
@@ -182,9 +217,9 @@ function markPreset(){for(const b of document.querySelectorAll('#presets button'
 
 function drawSetups(){
 $('setups').innerHTML=S.setups.map((u,i)=>`<div class="setup" data-i="${i}">
-<label class="nm"><span>Name</span><input id="n${i}" data-f="n" value="${esc(u.n)}"></label>
-<label><span>Stealth</span><input id="st${i}" data-f="st" type="number" inputmode="decimal" step="1" value="${esc(u.st)}"></label>
-<label><span>Rare %</span><input id="r${i}" data-f="r" type="number" inputmode="decimal" step="0.01" value="${esc(u.r)}"></label>
+<label class="nm"><span>Setup name</span><input id="n${i}" data-f="n" value="${esc(u.n)}"></label>
+<label><span>Total stealth</span><input id="st${i}" data-f="st" type="number" inputmode="decimal" step="1" value="${esc(u.st)}"></label>
+<label><span>Rare loot %</span><input id="r${i}" data-f="r" type="number" inputmode="decimal" step="0.01" value="${esc(u.r)}"></label>
 <button type="button" class="x" data-del="${i}" aria-label="Remove ${esc(u.n)}">✕</button>
 <div class="mods">${MODS.filter(m=>m.k in u.mods).map(m=>`<span class="mod"><span class="ml">${m.l}</span><input id="m${m.k}${i}" data-m="${m.k}" type="number" inputmode="decimal" step="0.1" value="${esc(u.mods[m.k])}" aria-label="${m.l} modifier %">%<button type="button" data-mdel="${m.k}" aria-label="Remove ${m.l} modifier">✕</button></span>`).join('')}${MODS.some(m=>!(m.k in u.mods))?`<select data-madd aria-label="Add modifier"><option value="">+ Add modifier</option>${MODS.filter(m=>!(m.k in u.mods)).map(m=>`<option value="${m.k}">${m.l} %</option>`).join('')}</select>`:''}</div></div>`).join('')||'<p class="empty">No setups yet. Add one to start comparing.</p>';
 }
@@ -204,7 +239,8 @@ const Ds=Math.max(0,STUN*(1+((S.stunred?-5:0)+num(m.stun,0))/100)),k=p*Ds;
 const s=Math.min(1,Math.max(0,(100+num(u.st,0))/(100+P)));
 const r=Math.max(0,num(u.r,0)/100);
 const at=T+(1-s)*k,rr=s*r/at;
-return {n:u.n||'Unnamed',P,Ds,k,s,r,at,rr,dps:rr*q,pa:s*r*q};
+const st0=num(u.st,0),f=L=>{const x=Math.min(1,Math.max(0,(100+st0+L)/(100+P))),a=T+(1-x)*k;return {s:x,at:a,rr:x*r/a}};
+return {n:u.n||'Unnamed',st:st0,P,Ds,k,s,r,at,rr,dps:rr*q,pa:s*r*q,f,L100:Math.max(0,Math.ceil(P-st0))};
 });
 return {rows,T,D,p,q};
 }
@@ -225,25 +261,36 @@ $('verdict').textContent=lead<0.00005?`It's a tie for ${item}`:`Use ${best.n} fo
 $('verdictSub').textContent=lead<0.00005?'Both setups find it at the same rate.':`It finds ${item} ${isFinite(lead)?(lead*100).toFixed(1)+'%':'infinitely'} faster than ${second.n}, counting time lost to stuns.`;
 }
 $('kpis').innerHTML=best.rr>0&&q>0?`<div><span class="big">${dur(1/best.dps)}</span><small>average time per drop with ${esc(best.n)}</small></div><div><span class="big">${fmt(1/best.pa,0)}</span><small>average attempts per drop</small></div>`:(best.rr>0?'<p class="empty">Set the item share above 0% to see drop times.</p>':'');
-$('race').innerHTML=order.map((i,j)=>{const r=rows[i];const v=q>0?(r.dps>0?`<span>1 every ${dur(1/r.dps)}</span> · <span>${fmt(r.dps*3600,4)}/h</span>`:'<span>never</span>'):`<span>${fmt(r.rr*3600,3)} rare rolls/h</span>`;
-const st=[['Perception',fmt(r.P,0)],['Success',pct(r.s)],['Rare roll',pct(r.r)],['Stun',sec(r.Ds)],['Avg attempt',r.at.toFixed(3)+'s'],['Attempts per drop',r.pa>0?fmt(1/r.pa,0):'–']];
+const xps=num(S.xps,NaN),hasXps=isFinite(xps)&&xps>0,xpNow=num(S.xpNow,NaN),hasXpNow=isFinite(xpNow)&&xpNow>=0;
+const lvIn=$('lvl');let lv=hasXpNow?lvFromXp(xpNow):Math.floor(num(S.lvl,NaN));
+if(hasXpNow){lvIn.value=lv;lvIn.disabled=true}else lvIn.disabled=false;
+const hasLv=isFinite(lv)&&lv>=1;if(hasLv)lv=Math.min(lv,CAP);
+const left=hasLv?CAP-lv:0;
+$('race').innerHTML=order.map((i,j)=>{const r=rows[i];const v=(q>0?(r.dps>0?`<span>1 every ${dur(1/r.dps)}</span> · <span>${fmt(r.dps*3600,4)}/h</span>`:'<span>never</span>'):`<span>${fmt(r.rr*3600,3)} rare rolls/h</span>`)+(hasXps?` · <span>${fmt(r.s*xps*3600/r.at,0)} XP/h</span>`:'');
+const L=r.L100,last=L===0?['100% success','already']:!hasLv?['100% success at','+'+L+' levels']:L<=left?['100% success at','level '+(lv+L)]:['Success at 99',pct(r.f(left).s)];
+const st=[['Total stealth',fmt(r.st,0)],['Perception',fmt(r.P,0)],['Success',pct(r.s)],['Rare roll',pct(r.r)],['Stun',sec(r.Ds)],['Avg attempt',r.at.toFixed(3)+'s'],['Attempts per drop',r.pa>0?fmt(1/r.pa,0):'–'],last];
 return `<div class="lane${j===0&&r.rr>0?' win':''}"><b>${esc(r.n)}</b><span class="v">${v}</span><div class="track"><div class="fill" style="width:${(r.rr/top*100).toFixed(2)}%"></div></div><dl class="stats">${st.map(x=>`<div><dt>${x[0]}</dt><dd>${x[1]}</dd></div>`).join('')}</dl></div>`}).join('');
 const be=[];
-if(best.rr>0&&second){
-for(const i of order.slice(1)){const r=rows[i];
-const need=best.rr*(T+r.k)/(r.r+best.rr*r.k);
-if(!(r.r>0))be.push(`<li><b>${esc(r.n)}</b> has no rare-table chance, so it can't get ${esc(item)}.</li>`);
-else if(need>1)be.push(`<li><b>${esc(r.n)}</b> can't catch up, even at 100% success.</li>`);
-else{const st=Math.max(0,Math.floor(need*(100+r.P)-100+1e-9)+1);
-be.push(`<li><b>${esc(r.n)}</b> would beat ${esc(best.n)} above ${pct(need)} success (stealth ${st} or more with it). It's at ${pct(r.s)} now.</li>`)}
+if(rows.length>1&&rows.some(r=>r.rr>0)){
+if(!hasLv)be.push('<li>Enter your thieving level to see whether and when to switch setups.</li>');
+else if(left===0)be.push(`<li>You're at the level ${CAP} cap, so ${esc(best.n)} stays the best choice.</li>`);
+else{
+let lead=order[0],t=0;const sw=[];
+for(let L=0;L<=left;L++){
+if(L>0){const rates=rows.map(r=>r.f(L).rr);let b=lead;rates.forEach((x,i)=>{if(x>rates[b]*(1+1e-12))b=i});if(b!==lead){sw.push({L,a:lead,b,t});lead=b}}
+if(L<left&&hasXps){const from=L===0&&hasXpNow?Math.min(Math.max(xpNow,XPT[lv]),XPT[lv+1]):XPT[lv+L];const o=rows[lead].f(L),xr=o.s*xps/o.at;t+=xr>0?(XPT[lv+L+1]-from)/xr:Infinity}
 }
-const capNeed=second.r>0?best.r*(T+second.k)/(second.r*T+best.r*second.k):Infinity;
-if(best.r<second.r)be.push(`<li class="w">${esc(second.n)} has the higher rare chance. Once ${esc(best.n)} reaches 100% success, ${esc(second.n)} wins above ${pct(Math.min(1,capNeed))}.</li>`);
+if(!sw.length)be.push(`<li>${esc(best.n)} stays the best choice all the way to level ${CAP}. Each level adds 1 stealth to every setup, and that never lets another setup overtake it before the cap.</li>`);
+else for(const w of sw)be.push(`<li class="w">Switch to <b>${esc(rows[w.b].n)}</b> at level ${lv+w.L} (${w.L} level${w.L>1?'s':''} from now${hasXps?`, about ${dur(w.t)} of thieving`:''}): from then on it beats ${esc(rows[w.a].n)}.</li>`);
+if(hasXps&&!hasXpNow&&sw.length)be.push('<li>Times assume you are at the start of your current level. Enter your current XP for an exact figure.</li>');
+}
 }
 $('be').innerHTML=be.join('');
 }
 
-function update(){for(const f of TXT)S[f]=$(f).value;for(const f of CHK)S[f]=$(f).checked;save();render()}
+const curLv=()=>{const x=num(S.xpNow,NaN);const L=isFinite(x)&&x>=0?lvFromXp(x):Math.floor(num(S.lvl,NaN));return isFinite(L)&&L>=1?Math.min(L,CAP):NaN};
+function syncStealth(){const L=curLv();if(!isFinite(L))return;if(!isFinite(num(S.alv,NaN))){S.alv=L;return}const d=L-S.alv;if(!d)return;S.setups.forEach((u,i)=>{const v=num(u.st,NaN);if(isFinite(v)){u.st=v+d;const el=$('st'+i);if(el){el.value=u.st;el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');clearTimeout(el._ft);el._ft=setTimeout(()=>el.classList.remove('flash'),2200)}}});S.alv=L}
+function update(){for(const f of TXT)S[f]=$(f).value;for(const f of CHK)S[f]=$(f).checked;syncStealth();save();render()}
 for(const f of TXT)$(f).addEventListener('input',update);
 for(const f of CHK)$(f).addEventListener('change',update);
 $('presets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.type=+b.dataset.t;markPreset();save();render()});
@@ -252,10 +299,50 @@ $('setups').addEventListener('change',e=>{const el=e.target,w=el.closest('.setup
 $('setups').addEventListener('click',e=>{const md=e.target.closest('[data-mdel]');if(md){const i=+md.closest('.setup').dataset.i;delete S.setups[i].mods[md.dataset.mdel];drawSetups();save();render();return}const b=e.target.closest('[data-del]');if(!b)return;S.setups.splice(+b.dataset.del,1);drawSetups();save();render()});
 $('add').addEventListener('click',()=>{S.setups.push({n:'Setup '+(S.setups.length+1),st:S.setups[0]?S.setups[0].st:100,r:1,mods:{}});drawSetups();save();render();const el=$('n'+(S.setups.length-1));if(el)el.focus()});
 $('reset').addEventListener('click',()=>{S=JSON.parse(JSON.stringify(EX));fillInputs();drawSetups();save();render()});
+// ---- export / import ----
+const APP='geka-thieving-calc',FMT=1;
+let dl=null;
+try{window.claude?.use?.('downloads').then(d=>{dl=d}).catch(()=>{})}catch(e){}
+const msg=(t,kind)=>{const m=$('msg');m.textContent=t;m.className='msg'+(kind?' '+kind:'')};
+const snapshot=()=>JSON.stringify({app:APP,format:FMT,exported:new Date().toISOString(),data:S},null,2);
+const showText=t=>{$('pasteTxt').value=t;$('pasteBox').open=true};
+async function copyOut(t,why){showText(t);try{await navigator.clipboard.writeText(t);msg((why?why+' ':'')+'The backup was copied to your clipboard. Paste it into a .json file to keep it.','ok')}catch(e){msg((why?why+' ':'')+'The backup text is below. Copy it into a .json file to keep it.','err')}}
+$('exp').addEventListener('click',async()=>{
+const t=snapshot(),d=new Date(),name=`thieving-setups-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}.json`;
+if(!dl){copyOut(t,'File downloads aren\'t available here.');return}
+try{await dl.save({filename:name,data:t});msg('Exported '+S.setups.length+' setup'+(S.setups.length===1?'':'s')+' to '+name+'.','ok')}
+catch(e){const c=e&&e.code;if(c==='declined')msg('Export cancelled.');else if(c==='rate_limited')msg('A save prompt is already open. Try again in a moment.','err');else copyOut(t,'The file couldn\'t be saved here.')}
+});
+$('copyTxt').addEventListener('click',()=>copyOut(snapshot(),''));
+const nOr=(v,d)=>v===''||v===null||v===undefined?d:(isFinite(parseFloat(v))?String(parseFloat(v)):d);
+function clean(raw){
+const d=raw&&typeof raw==='object'&&raw.data&&typeof raw.data==='object'?raw.data:raw;
+if(!d||typeof d!=='object'||!Array.isArray(d.setups))throw Object.assign(new Error('This file has no setups in it, so it doesn\'t look like a calculator backup.'),{calc:true});
+const o=JSON.parse(JSON.stringify(EX));
+o.type=[3,6,8].includes(+d.type)?+d.type:o.type;
+o.item=typeof d.item==='string'?d.item.slice(0,120):o.item;
+for(const k of ['perc','q','lvl'])o[k]=nOr(d[k],String(o[k]));
+for(const k of ['xps','xpNow'])o[k]=nOr(d[k],'');
+for(const k of CHK)o[k]=!!d[k];
+o.setups=d.setups.slice(0,50).filter(u=>u&&typeof u==='object').map((u,i)=>{const m={};if(u.mods&&typeof u.mods==='object')for(const x of MODS)if(x.k in u.mods)m[x.k]=nOr(u.mods[x.k],'0');return {n:typeof u.n==='string'?u.n.slice(0,80):'Setup '+(i+1),st:nOr(u.st,'0'),r:nOr(u.r,'0'),mods:m}});
+o.alv=undefined;return o;
+}
+let prev=null;
+function applyImport(text,src){
+let o;try{o=clean(JSON.parse(text))}catch(e){msg(e instanceof SyntaxError?'That isn\'t valid JSON, so nothing was imported.':e&&e.calc?e.message:'That file couldn\'t be imported, so nothing was changed.','err');return}
+prev=JSON.stringify(S);S=o;S.alv=curLv();
+fillInputs();drawSetups();save();render();
+$('undo').hidden=false;
+msg('Imported '+S.setups.length+' setup'+(S.setups.length===1?'':'s')+(src?' from '+src:'')+'.','ok');
+}
+$('impFile').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;if(f.size>1e6){msg('That file is too large to be a calculator backup.','err');return}try{applyImport(await f.text(),f.name)}catch(err){msg('The file couldn\'t be read.','err')}});
+$('pasteImp').addEventListener('click',()=>{const t=$('pasteTxt').value.trim();if(!t){msg('Paste a backup into the box first.','err');return}applyImport(t,'')});
+$('undo').addEventListener('click',()=>{if(!prev)return;S=JSON.parse(prev);prev=null;fillInputs();drawSetups();save();render();$('undo').hidden=true;msg('Import undone.','ok')});
 const topBtn=$('top');
 const onScroll=()=>topBtn.classList.toggle('show',window.scrollY>300);
 window.addEventListener('scroll',onScroll,{passive:true});onScroll();
 topBtn.addEventListener('click',()=>{const still=window.matchMedia('(prefers-reduced-motion: reduce)').matches;window.scrollTo({top:0,behavior:still?'auto':'smooth'})});
+if(!isFinite(num(S.alv,NaN)))S.alv=curLv();
 fillInputs();drawSetups();render();
 }
 </script>
