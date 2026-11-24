@@ -44,8 +44,9 @@ button.on{background:var(--teal);border-color:var(--teal);color:#fff}
 .setup{display:grid;grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr)) auto;gap:8px;align-items:end;padding:10px 0;border-top:1px solid var(--edge)}
 .setup:first-of-type{border-top:0}
 .setup .x{width:44px;padding:0}
-.mods{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.mod{flex:1 1 17em;display:flex;align-items:center;gap:6px;padding:3px 3px 3px 10px;border:1px solid var(--edge);border-radius:6px;background:var(--bg);font-size:14px;color:var(--mut)}
+.mods{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.mods select{align-self:flex-start;width:15em;max-width:100%}
+.mod{display:flex;align-items:center;gap:6px;padding:3px 3px 3px 10px;border:1px solid var(--edge);border-radius:6px;background:var(--bg);font-size:14px;color:var(--mut)}
 .ml{flex:1}
 .mod input{width:5.5em;flex:none;min-height:38px;padding:6px 8px}
 .mod button{min-height:38px;width:38px;padding:0;border:0;background:none}
