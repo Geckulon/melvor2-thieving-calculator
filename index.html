@@ -32,7 +32,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);grid-temp
 #ctl{grid-area:ctl;display:grid;gap:16px}
 .pan{background:var(--pan);border:1px solid var(--edge);border-radius:10px;padding:18px}
 .sub{color:var(--mut);margin:0 0 14px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5em,1fr));gap:12px}
+.grid{align-items:end;display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5em,1fr));gap:12px}
 label{display:block;font-size:14px;font-weight:500;color:var(--mut)}
 label span{display:block;margin-bottom:4px}
 input{width:100%;font:16px "Alegreya Sans",system-ui,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--edge);border-radius:6px;padding:9px 10px;min-height:44px}
@@ -73,6 +73,25 @@ select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .big{font:700 clamp(34px,5vw,52px)/1 Cinzel,Georgia,serif;color:var(--goldt);white-space:nowrap}
 .kpis{display:flex;flex-wrap:wrap;gap:8px 28px;align-items:baseline;margin:4px 0 0}
 .kpis small{display:block;color:var(--mut);font-size:14px}
+.prog[hidden]{display:none}
+.prog{margin:18px 0 4px;padding:14px;border-radius:8px;background:color-mix(in srgb,var(--gold) 9%,transparent);border:1px solid var(--edge)}
+.pl{margin-bottom:6px}
+.prog>input{max-width:14em}
+.luck{margin:0;font-size:16px}
+.luck b{color:var(--goldt)}
+.meter{position:relative;height:16px;margin:14px 0 30px;border-radius:8px;background:color-mix(in srgb,var(--bar) 45%,transparent)}
+.meter .mf{position:absolute;inset:0 auto 0 0;border-radius:8px;background:var(--gold);transition:width .35s ease}
+.mk{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.mk span{position:absolute;top:24px;transform:translateX(-50%);white-space:nowrap;font-size:13px;color:var(--mut)}
+.mk.e0 span{transform:none}.mk.e1 span{transform:translateX(-100%)}
+.pg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 16px;margin:0}
+.pg div{display:flex;flex-direction:column}
+.pg dt{font-size:13px;color:var(--mut)}
+.pg dd{margin:0;font-size:15px;font-variant-numeric:tabular-nums}
+.pg dd small{display:block;color:var(--mut);font-size:13px}
+.pn{margin:12px 0 0;font-size:14px;color:var(--mut)}
+@media(max-width:600px){.pg{grid-template-columns:minmax(0,1fr)}.prog>input{max-width:none}}
+@media(prefers-reduced-motion:reduce){.meter .mf{transition:none}}
 .lane{padding-bottom:14px;border-bottom:1px solid var(--edge)}
 .lane:last-child{border-bottom:0;padding-bottom:0}
 .lane .v span{white-space:nowrap}
@@ -149,6 +168,7 @@ input.flash{animation:flash 2.2s ease-out}
 <p class="sub" id="verdictSub"></p>
 <p class="alert" id="survAlert" hidden></p>
 <div class="kpis" id="kpis"></div>
+<div class="prog" id="prog" hidden><div id="progOut"></div></div>
 <div class="race" id="race"></div>
 <ul class="be" id="be"></ul>
 <details><summary>How this is worked out</summary>
@@ -201,6 +221,7 @@ input.flash{animation:flash 2.2s ease-out}
 <label><span>Perception without items</span><input id="perc" type="number" inputmode="decimal" min="0" step="1"></label>
 <label><span>Item share of rare table (%)</span><input id="q" type="number" inputmode="decimal" min="0" max="100" step="0.01"></label>
 <label><span>XP per success (optional)</span><input id="xps" type="number" inputmode="decimal" min="0" step="0.1" placeholder="e.g. 25"></label>
+<label title="Successful attempts on this target so far, still without the item"><span>Successes so far (optional)</span><input id="done" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g. 1500"></label>
 </div>
 </div>
 
@@ -237,16 +258,16 @@ input.flash{animation:flash 2.2s ease-out}
 <script>
 {
 const KEY='thv-calc-v4';
-const EX={type:8,lvl:65,alv:65,hp:310,dmg:'',food:'',heal:'',item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5,xp:3}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
+const EX={type:8,lvl:65,alv:65,done:'',hp:310,dmg:'',food:'',heal:'',item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5,xp:3}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
 const MODS=[{k:'perc',l:'Perception'},{k:'stun',l:'Thieving stun interval'},{k:'xp',l:'Thieving XP'}];
 const NAMES={3:'Pickpocket',6:'Stall',8:'Chest'};
 const STUN=2;
-const TXT=['item','perc','q','xps','lvl','xpNow','hp','dmg','food','heal'],CHK=['spd','avoid','stunred'];
+const TXT=['item','perc','q','xps','lvl','xpNow','hp','dmg','food','heal','done'],CHK=['spd','avoid','stunred'];
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!Array.isArray(S.setups)||!NAMES[S.type])S=JSON.parse(JSON.stringify(EX));
 for(const u of S.setups)if(!u.mods||typeof u.mods!=='object')u.mods={};
-if(S.lvl===undefined)S.lvl=65;for(const k of ['hp','dmg','food','heal'])if(S[k]===undefined)S[k]=k==='hp'?310:'';if(S.xps===undefined)S.xps='';if(S.xpNow===undefined)S.xpNow='';
+if(S.lvl===undefined)S.lvl=65;if(S.done===undefined)S.done='';for(const k of ['hp','dmg','food','heal'])if(S[k]===undefined)S[k]=k==='hp'?310:'';if(S.xps===undefined)S.xps='';if(S.xpNow===undefined)S.xpNow='';
 const CAP=99,XPT=[0,0];{let p=0;for(let n=1;n<120;n++){p+=Math.floor(n+300*Math.pow(2,n/7));XPT.push(Math.floor(p/4))}}
 const lvFromXp=x=>{let L=1;while(L<CAP&&XPT[L+1]<=x)L++;return L};
 const $=id=>document.getElementById(id);
@@ -346,15 +367,38 @@ if(dmg>0)notes.push('No setting is absolutely safe: the worst case above (failin
 out.innerHTML=`<div class="lvl l${lv}"><b>${lname}</b><span>${rows.length>1?esc(rows[lead].n)+': ':''}${sum}</span></div>`+thrLine+guide+`<ul class="sl">${items.map(x=>x.html).join('')}</ul>`+(notes.length?`<ul class="warns">${notes.map(w=>`<li>${w}</li>`).join('')}</ul>`:'');
 if(lv<=2){al.className='alert l'+lv;al.innerHTML=`Survival: <b>${LV[lv]}</b>. ${sum} <a href="#surv">See the Survival panel.</a>`;al.hidden=false}
 }
+function renderProg(best,q){
+const out=$('progOut'),box=$('prog');
+const k=Math.floor(num(S.done,NaN));
+if(!best||!(best.rr>0)||!(q>0)||!(k>=0)){box.hidden=true;return}box.hidden=false;
+const pr=best.r*q,avg=1/pr,n99=Math.log(0.01)/Math.log1p(-pr),tps=best.at/best.s,aps=1/best.s;
+const it=String(S.item||'').trim()||'the item';
+const fmtS=n=>`${fmt(n,0)} success${Math.round(n)===1?'':'es'}<small>${fmt(n*aps,0)} attempts · ${dur(n*tps)}</small>`;
+
+const had=1-Math.pow(1-pr,k);
+const pctTxt=x=>x>=0.9995?(x*100).toFixed(x>=0.99995?3:2)+'%':fmt(x*100,1)+'%';
+let head;
+if(k<avg)head=`You're <b>${fmt(avg-k,0)} successes short of the average</b>, so not unlucky yet: ${pctTxt(had)} of players would have ${esc(it)} by now.`;
+else if(k<n99)head=`You're <b>${fmt(k-avg,0)} successes past the average</b>, unluckier than ${pctTxt(had)} of players.`;
+else{const odds=1/Math.pow(1-pr,k);head=`You're <b>past the 99% mark</b>: only about 1 in ${odds>=1e12?'over a trillion':fmt(odds,0)} players would still be without ${esc(it)} after this many successes.`}
+const scale=Math.max(n99,k)*1.06,pos=x=>Math.min(100,x/scale*100);
+const mk=(x,l)=>{const p=pos(x);return `<div class="mk${p<12?' e0':p>88?' e1':''}" style="left:${p.toFixed(2)}%"><span>${l}</span></div>`};
+const left=(t,lab)=>k<t?fmtS(t-k):`passed<small>${fmt(k-t,0)} successes ago</small>`;
+out.innerHTML=`<p class="luck">${head}</p>
+<div class="meter" role="img" aria-label="${fmt(k,0)} successes against an average of ${fmt(avg,0)} and a 99% mark of ${fmt(n99,0)}"><div class="mf" style="width:${pos(k).toFixed(2)}%"></div>${mk(avg,'Average '+fmt(avg,0))}${mk(n99,'99% '+fmt(n99,0))}</div>
+<dl class="pg"><div><dt>Done so far</dt><dd>${fmtS(k)}</dd></div><div><dt>To the average</dt><dd>${left(avg)}</dd></div><div><dt>To the 99% mark</dt><dd>${left(n99)}</dd></div></dl>
+<p class="pn">Each success is a fresh roll, so past attempts don't make ${esc(it)} more likely now. From here, the average is still ${fmt(avg,0)} more successes (${dur(avg*tps)}), and a 99% chance takes another ${fmt(n99,0)} (${dur(n99*tps)}). Attempts and times use ${esc(best.n)}'s current success rate and rare loot chance.</p>`;
+}
 function render(){
 const {rows,T,D,p,q}=calc();
 renderSurv(rows,T);
 const item=String(S.item||'').trim()||'the item';
 $('timing').innerHTML=`<span>${NAMES[S.type]} attempt <b>${sec(T)}</b></span><span>Stun <b>${sec(D)}</b> before item modifiers</span><span>Stunned on <b>${fmt(p*100,0)}%</b> of failures</span>`;
-if(!rows.length){$('verdict').textContent='Add a setup to compare';$('verdictSub').textContent='';$('kpis').innerHTML='';$('race').innerHTML='';$('be').innerHTML='';return}
+if(!rows.length){renderProg(null,q);$('verdict').textContent='Add a setup to compare';$('verdictSub').textContent='';$('kpis').innerHTML='';$('race').innerHTML='';$('be').innerHTML='';return}
 const order=rows.map((r,i)=>i).sort((a,b)=>rows[b].rr-rows[a].rr);
 const best=rows[order[0]],second=order.length>1?rows[order[1]]:null;
 const top=best.rr||1;
+renderProg(best,q);
 if(!(best.rr>0)){$('verdict').textContent='No setup can roll the rare table';$('verdictSub').textContent='Check the rare chances.'}
 else if(!second){$('verdict').textContent=`${best.n} for ${item}`;$('verdictSub').textContent='Add another setup to compare against it.'}
 else{
@@ -424,7 +468,7 @@ const o=JSON.parse(JSON.stringify(EX));
 o.type=[3,6,8].includes(+d.type)?+d.type:o.type;
 o.item=typeof d.item==='string'?d.item.slice(0,120):o.item;
 for(const k of ['perc','q','lvl'])o[k]=nOr(d[k],String(o[k]));
-for(const k of ['xps','xpNow','dmg','food','heal'])o[k]=nOr(d[k],'');o.hp=nOr(d.hp,'');
+for(const k of ['xps','xpNow','dmg','food','heal','done'])o[k]=nOr(d[k],'');o.hp=nOr(d.hp,'');
 for(const k of CHK)o[k]=!!d[k];
 o.setups=d.setups.slice(0,50).filter(u=>u&&typeof u==='object').map((u,i)=>{const m={};if(u.mods&&typeof u.mods==='object')for(const x of MODS)if(x.k in u.mods)m[x.k]=nOr(u.mods[x.k],'0');return {n:typeof u.n==='string'?u.n.slice(0,80):'Setup '+(i+1),st:nOr(u.st,'0'),r:nOr(u.r,'0'),mods:m}});
 o.alv=undefined;return o;
