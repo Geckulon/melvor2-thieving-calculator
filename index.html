@@ -90,6 +90,14 @@ select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .pg dd{margin:0;font-size:15px;font-variant-numeric:tabular-nums}
 .pg dd small{display:block;color:var(--mut);font-size:13px}
 .pn{margin:12px 0 0;font-size:14px;color:var(--mut)}
+#multi{margin-top:14px;padding-top:10px;border-top:1px solid var(--edge);color:var(--ink);font-size:16px}
+#multi summary{font-weight:700;min-height:36px;display:flex;align-items:center;gap:6px}
+#multi summary::before{content:"";width:0;height:0;border:5px solid transparent;border-left:7px solid currentColor;transition:transform .15s}
+#multi[open] summary::before{transform:rotate(90deg) translateX(2px)}
+#multi summary::-webkit-details-marker{display:none}
+#multi summary{list-style:none}
+#multi label{margin-top:4px}
+#have{max-width:10em}
 @media(max-width:600px){.pg{grid-template-columns:minmax(0,1fr)}.prog>input{max-width:none}}
 @media(prefers-reduced-motion:reduce){.meter .mf{transition:none}}
 .lane{padding-bottom:14px;border-bottom:1px solid var(--edge)}
@@ -168,7 +176,12 @@ input.flash{animation:flash 2.2s ease-out}
 <p class="sub" id="verdictSub"></p>
 <p class="alert" id="survAlert" hidden></p>
 <div class="kpis" id="kpis"></div>
-<div class="prog" id="prog" hidden><div id="progOut"></div></div>
+<div class="prog" id="prog" hidden><div id="progOut"></div>
+<details id="multi"><summary>Overall luck checker</summary>
+<label for="have"><span>Copies you already have</span></label>
+<input id="have" type="number" inputmode="numeric" min="0" step="1" value="0">
+<p class="pn" style="margin-top:6px">Going for several copies? Enter how many you've got within the successes above, and the luck result switches to your overall luck. Leave it at 0 while you're hunting your first.</p>
+</details></div>
 <div class="race" id="race"></div>
 <ul class="be" id="be"></ul>
 <details><summary>How this is worked out</summary>
@@ -258,16 +271,16 @@ input.flash{animation:flash 2.2s ease-out}
 <script>
 {
 const KEY='thv-calc-v4';
-const EX={type:8,lvl:65,alv:65,done:'',hp:310,dmg:'',food:'',heal:'',item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5,xp:3}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
+const EX={type:8,lvl:65,alv:65,done:'',have:'0',hp:310,dmg:'',food:'',heal:'',item:'Gold Topaz Ring',perc:203,q:15,spd:false,avoid:false,stunred:false,setups:[{n:'Thug Chief Ring',st:105,r:1.15,mods:{stun:-5,xp:3}},{n:'Thug Armband',st:80,r:1.30,mods:{perc:3}}]};
 const MODS=[{k:'perc',l:'Perception'},{k:'stun',l:'Thieving stun interval'},{k:'xp',l:'Thieving XP'}];
 const NAMES={3:'Pickpocket',6:'Stall',8:'Chest'};
 const STUN=2;
-const TXT=['item','perc','q','xps','lvl','xpNow','hp','dmg','food','heal','done'],CHK=['spd','avoid','stunred'];
+const TXT=['item','perc','q','xps','lvl','xpNow','hp','dmg','food','heal','done','have'],CHK=['spd','avoid','stunred'];
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!Array.isArray(S.setups)||!NAMES[S.type])S=JSON.parse(JSON.stringify(EX));
 for(const u of S.setups)if(!u.mods||typeof u.mods!=='object')u.mods={};
-if(S.lvl===undefined)S.lvl=65;if(S.done===undefined)S.done='';for(const k of ['hp','dmg','food','heal'])if(S[k]===undefined)S[k]=k==='hp'?310:'';if(S.xps===undefined)S.xps='';if(S.xpNow===undefined)S.xpNow='';
+if(S.lvl===undefined)S.lvl=65;if(S.done===undefined)S.done='';if(S.have===undefined)S.have='0';for(const k of ['hp','dmg','food','heal'])if(S[k]===undefined)S[k]=k==='hp'?310:'';if(S.xps===undefined)S.xps='';if(S.xpNow===undefined)S.xpNow='';
 const CAP=99,XPT=[0,0];{let p=0;for(let n=1;n<120;n++){p+=Math.floor(n+300*Math.pow(2,n/7));XPT.push(Math.floor(p/4))}}
 const lvFromXp=x=>{let L=1;while(L<CAP&&XPT[L+1]<=x)L++;return L};
 const $=id=>document.getElementById(id);
@@ -280,7 +293,7 @@ const dur0=s=>{if(!isFinite(s))return '–';if(s<60)return Math.round(s)+'s';con
 const fmt=(x,d)=>isFinite(x)?x.toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d}):'–';
 const sec=x=>(+x.toFixed(3)).toString()+'s';
 
-function fillInputs(){for(const f of TXT)$(f).value=S[f];for(const f of CHK)$(f).checked=!!S[f];markPreset()}
+function fillInputs(){const hv=Math.floor(num(S.have,0));if(hv>0)$('multi').open=true;for(const f of TXT)$(f).value=S[f];for(const f of CHK)$(f).checked=!!S[f];markPreset()}
 function markPreset(){for(const b of document.querySelectorAll('#presets button')){const on=+b.dataset.t===+S.type;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)}}
 
 function drawSetups(){
@@ -375,6 +388,23 @@ const pr=best.r*q,avg=1/pr,n99=Math.log(0.01)/Math.log1p(-pr),tps=best.at/best.s
 const it=String(S.item||'').trim()||'the item';
 const fmtS=n=>`${fmt(n,0)} success${Math.round(n)===1?'':'es'}<small>${fmt(n*aps,0)} attempts · ${dur(n*tps)}</small>`;
 
+const N=Math.max(0,Math.floor(num(S.have,0)));
+if(N>0){
+if(N>k){out.innerHTML=`<p class="luck">You can't have more copies (${fmt(N,0)}) than successes (${fmt(k,0)}). Check the two numbers.</p>`;return}
+const lq=Math.log1p(-pr),lr=Math.log(pr)-lq;let lp=k*lq,below=0,j=0;
+for(;j<N;j++){below+=Math.exp(lp);lp+=Math.log(k-j)-Math.log(j+1)+lr}
+const eq=Math.exp(lp),above=Math.max(0,1-below-eq),exp=k*pr;
+const pc=x=>x<0.0005?'under 0.1%':x>0.9995?'over 99.9%':fmt(x*100,1)+'%';
+const per=k/N;
+let head2;
+if(N>=exp)head2=`You have <b>${fmt(N,0)} copies</b> where the average player would have ${fmt(Math.round(exp),0)}. That's <b>luckier than ${pc(below)}</b> of players; ${pc(above)} would have more.`;
+else head2=`You have <b>${fmt(N,0)} cop${N===1?'y':'ies'}</b> where the average player would have ${fmt(Math.round(exp),0)}. That's <b>unluckier than ${pc(above)}</b> of players; ${pc(below)} would have fewer.`;
+const hi=Math.max(N,exp)*1.25||1,ps=x=>Math.min(100,x/hi*100);
+out.innerHTML=`<p class="luck">${head2}</p>
+<div class="meter" role="img" aria-label="${fmt(N,0)} copies against an expected ${fmt(Math.round(exp),0)}"><div class="mf" style="width:${ps(N).toFixed(2)}%"></div><div class="mk${ps(exp)<12?' e0':ps(exp)>88?' e1':''}" style="left:${ps(exp).toFixed(2)}%"><span>Expected ${fmt(Math.round(exp),0)}</span></div></div>
+<dl class="pg"><div><dt>Successes</dt><dd>${fmtS(k)}</dd></div><div><dt>Your successes per copy</dt><dd>${fmt(per,0)}<small>average is ${fmt(avg,0)}</small></dd></div><div><dt>Next copy</dt><dd>${fmtS(avg)}</dd></div></dl>
+<p class="pn">Exactly ${fmt(N,0)} cop${N===1?'y':'ies'} after ${fmt(k,0)} successes happens to ${pc(eq)} of players. The next copy is a fresh roll: on average ${fmt(avg,0)} more successes (${dur(avg*tps)}), with a 99% chance within ${fmt(n99,0)} (${dur(n99*tps)}). Attempts and times use ${esc(best.n)}'s current success rate and rare loot chance.</p>`;
+return}
 const had=1-Math.pow(1-pr,k);
 const pctTxt=x=>x>=0.9995?(x*100).toFixed(x>=0.99995?3:2)+'%':fmt(x*100,1)+'%';
 let head;
@@ -468,7 +498,7 @@ const o=JSON.parse(JSON.stringify(EX));
 o.type=[3,6,8].includes(+d.type)?+d.type:o.type;
 o.item=typeof d.item==='string'?d.item.slice(0,120):o.item;
 for(const k of ['perc','q','lvl'])o[k]=nOr(d[k],String(o[k]));
-for(const k of ['xps','xpNow','dmg','food','heal','done'])o[k]=nOr(d[k],'');o.hp=nOr(d.hp,'');
+for(const k of ['xps','xpNow','dmg','food','heal','done'])o[k]=nOr(d[k],'');o.have=String(Math.max(0,Math.floor(num(nOr(d.have,'0'),0))));o.hp=nOr(d.hp,'');
 for(const k of CHK)o[k]=!!d[k];
 o.setups=d.setups.slice(0,50).filter(u=>u&&typeof u==='object').map((u,i)=>{const m={};if(u.mods&&typeof u.mods==='object')for(const x of MODS)if(x.k in u.mods)m[x.k]=nOr(u.mods[x.k],'0');return {n:typeof u.n==='string'?u.n.slice(0,80):'Setup '+(i+1),st:nOr(u.st,'0'),r:nOr(u.r,'0'),mods:m}});
 o.alv=undefined;return o;
